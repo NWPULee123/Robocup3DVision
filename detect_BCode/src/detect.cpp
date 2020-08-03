@@ -29,7 +29,9 @@ void Detector::DetectCorners(cv::Mat image)
 	vector<vector<cv::Point>> candidates;
 	vector<vector<cv::Point>> candidates2;
 	vector<int> candidate_ids;
-	
+	cv::Mat ori_contours_image = image.clone();
+	cv::Mat caculated_image = image.clone();
+	cv::Mat final_image = image.clone();
 
 	for(int i=0; i<contours.size(); i++)
 	{
@@ -71,7 +73,7 @@ void Detector::DetectCorners(cv::Mat image)
 		}
 	}
 	int target_id = -1;
-	cv::Mat ori_contours_image = image.clone();
+	
 	//step 3
 	for(int i=0; i<candidates.size(); i++)
 	{
@@ -90,8 +92,8 @@ void Detector::DetectCorners(cv::Mat image)
 		cv::Mat matrix = cv::getPerspectiveTransform(src,dst);
 		cv::warpPerspective(image,transform_image,matrix,transform_image.size());	
 		if(TestImageCode(transform_image)){
-			target_id = i;
-			cv::drawContours(ori_contours_image, ori_contours, target_id, cv::Scalar(255,0,0), 1.5);
+			target_id = candidate_ids[i];
+			cv::drawContours(ori_contours_image, ori_contours, target_id,cv::Scalar(255,0,0),1.5);
 			ClockwiseSort(this->outer_result, candidates[i]);
 			ClockwiseSort(this->inner_result, candidates2[i]);
 			cv::drawContours(image, candidates, i,cv::Scalar(255,0,0),1.5);
@@ -99,6 +101,28 @@ void Detector::DetectCorners(cv::Mat image)
 			break;
 		}
 	}
+	cv::Mat Weights(2,4,CV_32F);
+	GetLinerRegressionWeights(ori_contours[target_id], Weights);
+	vector<cv::Point2f> caculated_cornors(4);
+	GetCornors(Weights, caculated_cornors);
+	if(isWeightsValid(Weights))
+	{
+		for(int i=0; i<4; i++)
+			this->outer_result[i] = 0.5*(this->outer_result[i] + caculated_cornors[i]);
+	}
+	vector<vector<cv::Point>> cal_cornors(1);
+	cal_cornors[0].resize(4);
+	for(int i=0; i<4; i++)
+		cal_cornors[0][i] = caculated_cornors[i];
+	vector<vector<cv::Point>> result_cornors(1);
+	result_cornors[0].resize(4);
+	for(int i=0; i<4; i++)
+		result_cornors[0][i] = this->outer_result[i];
+	cv::drawContours(caculated_image, cal_cornors, 0, cv::Scalar(255,0,0),1.5);
+	cv::drawContours(final_image, result_cornors, 0, cv::Scalar(255,0,0),1.5);
+
+	cv::imshow("caculated_contours", caculated_image);
+	cv::imshow("final_contours", final_image);
 	cv::imshow("ori_contours", ori_contours_image);
 	cv::waitKey(0);
 	this->result_image = image;
@@ -131,7 +155,7 @@ void Detector::GetIniContours(cv::Mat image, vector<vector<cv::Point>> &ori_cont
 	contours.resize(ori_contours.size());
 
 	for(int i=0; i<ori_contours.size(); i++)
-		cv::approxPolyDP(ori_contours[i], contours[i], cv::arcLength(ori_contours[i],1) * 0.1, true);
+		cv::approxPolyDP(ori_contours[i], contours[i], cv::arcLength(ori_contours[i],1) * 0.05, true);
 }
 
 
@@ -235,4 +259,74 @@ void Detector::ShowResultImage()
 	cv::waitKey(0);
 }
 
+void Detector::GetLinerRegressionWeights(vector<cv::Point> ori_contours, cv::Mat &Weights)
+{
+	vector<vector<double>> input_x(4);
+	vector<vector<double>> input_y(4);
+	CreateFilterData(ori_contours, input_x, input_y);
+	UpperclassFilter *filter = new UpperclassFilter();
+	for(int i=0; i<4; i++)
+	{
+		cv::Mat W(2,1,CV_32F);
+		W = filter->LinerRegression(input_x[i], input_y[i]);
+		W.copyTo(Weights.rowRange(0,2).col(i));
+	}
+}
+
+void Detector::CreateFilterData(vector<cv::Point> ori_contours, vector<vector<double>> &input_x, vector<vector<double>> &input_y)
+{
+	vector<vector<cv::Point>> edges(4);
+	cv::Point top_left_cornor = this->outer_result[0];
+	cv::Point top_right_cornor = this->outer_result[1];
+	cv::Point lower_right_cornor = this->outer_result[2];
+	cv::Point lower_left_cornor = this->outer_result[3];
+	cv::Point center;
+	center.x = (top_left_cornor.x + top_right_cornor.x + lower_right_cornor.x + lower_left_cornor.x)/4;
+	center.y = (top_left_cornor.y + top_right_cornor.y + lower_right_cornor.y + lower_left_cornor.y)/4;
+	for(int i=0; i<ori_contours.size(); i++)
+	{
+		int x = ori_contours[i].x, y = ori_contours[i].y;
+		if(x>=top_left_cornor.x && x<=top_right_cornor.x && fabs(y-top_left_cornor.y)<10 && fabs(y-top_right_cornor.y)<10)
+			edges[0].push_back(ori_contours[i]);
+		else if(y>=top_right_cornor.y && y<=lower_right_cornor.y && fabs(x-top_right_cornor.x)<10 && fabs(x-lower_right_cornor.x)<10)
+			edges[1].push_back(ori_contours[i]);
+		else if(x>=lower_left_cornor.x && x<=lower_right_cornor.x && fabs(y-lower_left_cornor.y)<10 && fabs(y-lower_right_cornor.y)<10)
+			edges[2].push_back(ori_contours[i]);
+		else if(y>=top_left_cornor.y && y<=lower_left_cornor.y && fabs(x-top_left_cornor.x)<10 && fabs(x-lower_left_cornor.x)<10)
+			edges[3].push_back(ori_contours[i]);
+	}
+	for(int i=0; i<4; i++)
+	{
+		input_x[i].resize(edges[i].size());
+		input_y[i].resize(edges[i].size());
+		for(int j=0; j<edges[i].size(); j++)
+		{
+			input_x[i][j] = edges[i][j].x;
+			input_y[i][j] = edges[i][j].y;
+		}
+	}
+}
+
+void Detector::GetCornors(cv::Mat Weights, vector<cv::Point2f> &caculated_cornors)
+{
+	for(int i=0; i<4; i++)
+	{
+		double k1 = Weights.at<float>(1,i);
+		double b1 = Weights.at<float>(0,i);
+		double k2 = Weights.at<float>(1,(i+1)%4);
+		double b2 = Weights.at<float>(0,(i+1)%4);
+		caculated_cornors[(i+1)%4].x = (b2-b1)/(k1-k2);
+		caculated_cornors[(i+1)%4].y = 0.5*(k1*caculated_cornors[(i+1)%4].x+b1+k2*caculated_cornors[(i+1)%4].x+b2);
+	}
+}
+
+bool Detector::isWeightsValid(cv::Mat Weights)
+{
+	for(int i=0; i<4; i++)
+	{
+		if(Weights.at<float>(0,i)==0 || Weights.at<float>(1,i)==0)
+			return false;
+	}
+	return true;
+}
 

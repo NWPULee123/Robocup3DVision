@@ -21,8 +21,8 @@ void ContinueslyTest(cv::Mat frame , ofstream &fout, double &distance, int &coun
 	pose_estimate->GetRobotPoseInWorld(direction_vec, pos, R_rw, t_rw);
 	distance = pose_estimate->GetDistanceToMark();
 
-	cout<<"pos : "<<pos<<'\t'<<direction_vec<<'      \t'<<"param : "<<mark_detector->thres_paramter<<endl;
-	fout<<"pos : "<<pos<<'\t'<<direction_vec<<'      \t'<<"param : "<<mark_detector->thres_paramter<<endl;
+	cout<<"pos : "<<pos<<'\t'<<direction_vec<<'\t'<<"param : "<<mark_detector->thres_paramter<<endl;
+	fout<<"pos : "<<pos<<'\t'<<direction_vec<<'\t'<<"param : "<<mark_detector->thres_paramter<<endl;
 	// count ++;
 	// avg_pos += pos;
 	// if(count%4 == 0)

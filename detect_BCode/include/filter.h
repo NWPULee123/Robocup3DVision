@@ -33,6 +33,7 @@ class UpperclassFilter
 		bool isValid(double distance);
 		bool isEffective(double y_predicted, double input_data);
 		cv::Mat LinerRegression(vector<vector<double>> x_data, vector<double> y_data);
+		cv::Mat LinerRegression(vector<double> x_data, vector<double> y_data);
 };
 
 #endif

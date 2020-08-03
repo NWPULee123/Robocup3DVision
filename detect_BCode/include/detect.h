@@ -6,6 +6,7 @@
 #include "opencv2/opencv.hpp"
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core.hpp>
+#include "filter.h"
 
 using namespace std;
 using namespace cv;
@@ -32,7 +33,11 @@ class Detector
 		~Detector(){};
 		void GetIniContours(cv::Mat image, vector<vector<cv::Point>> &ori_contours, vector<vector<cv::Point>> &contours, vector<cv::Vec4i> &hierarchy);
 		bool TestImageCode(cv::Mat transform_image);
-		void ClockwiseSort(vector<Point2f> &src, vector<Point> contour);	
+		void ClockwiseSort(vector<Point2f> &src, vector<Point> contour);
+		void GetLinerRegressionWeights(vector<Point> ori_contours, cv::Mat &Weights);
+		void CreateFilterData(vector<cv::Point> ori_contours, vector<vector<double>> &input_x, vector<vector<double>> &input_y);
+		void GetCornors(cv::Mat Weights, vector<cv::Point2f> &caculated_cornors);
+		bool isWeightsValid(cv::Mat Weights);
 };
 
 #endif

@@ -13,8 +13,8 @@ Pose::Pose()
 	mark_length = 0.0865; //meter
 	ball_diameter = 0;
 	distance_to_mark = 2.0;
-	camera_param = "../../calibration/bin/camera_param.yaml";
-	external_param = "../../calibration/bin/ex_param.yaml";
+	camera_param = "../bin/camera_param.yaml";
+	external_param = "../bin/ex_param.yaml";
 	camera_matrix = cv::Mat::eye(3,3,CV_32F);
 	dist_coef= cv::Mat::zeros(3,1,CV_32F);
 	camera_R_vec = cv::Mat::zeros(3,1,CV_32F);
