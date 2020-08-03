@@ -97,18 +97,27 @@ cv::Mat UpperclassFilter::LinerRegression(vector<double> x_data, vector<double> 
 {
 	if(x_data.size() != y_data.size())
 		cout<<"Input dim error at LinerRegression "<<endl;
-	cv::Mat X(x_data.size(), 2, CV_32F);
-	cv::Mat Y(y_data.size(),1, CV_32F);
-	cv::Mat W(2, 1, CV_32F);
+	cv::Mat X(x_data.size(), 2, CV_32FC1);
+	cv::Mat Y(y_data.size(),1, CV_32FC1);
+	cv::Mat W(2, 1, CV_32FC1);
 	for(int i=0; i<x_data.size(); i++)
 	{
 		X.at<float>(i,0) = 1.f;
 		X.at<float>(i,1) = x_data[i]; 
 		Y.at<float>(i) = y_data[i];
 	}
-	cv::Mat xTx = X.t()*X;
-	cv::invert(xTx, xTx);
-	W = xTx*X.t()*Y;
+	try
+	{
+		cv::Mat xTx(2,2,CV_32FC1);
+		xTx  = X.t()*X;
+		cv::invert(xTx, xTx);
+		W = xTx*X.t()*Y;
+	}
+	catch( cv::Exception & e)
+	{
+		cout<<"error at LinerRegression"<<endl;
+		std::cerr << e.what() << endl;
+	}
 	return W;
 }
 

@@ -8,7 +8,7 @@ using namespace std;
 void ContinueslyTest(cv::Mat frame , ofstream &fout, double &distance, int &count, cv::Point2f &avg_pos)
 {
 	Detector *mark_detector = new Detector();
-	mark_detector->SetThresParamter(distance);
+	mark_detector->SetParamter(distance);
 	mark_detector->DetectCorners(frame);
 	vector<cv::Point2f> detect_result = mark_detector->GetDetectResult();
 

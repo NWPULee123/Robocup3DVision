@@ -14,6 +14,19 @@ using namespace cv;
 class Pose
 {
 	public:
+		Pose();
+		~Pose(){};
+
+
+	public:
+		void InitializeParam();
+		void GetRobotPoseInWorld(cv::Vec2f &direction_vec, cv::Point2f &pos, cv::Mat R_rw, cv::Mat t_rw, bool debug = true);
+		void GetBallPositionInWorld(vector<cv::Point2f> detect_result, cv::Point2f &ball_position, bool debut = true);
+		void TransformRobotToWorld(vector<Point2f> detect_result, cv::Mat &R_rw, cv::Mat &t_rw, bool debug = true);
+		double GetDistanceToMark();
+
+
+	protected:
 		double mark_length;
 		double ball_diameter;
 		double distance_to_mark;
@@ -25,17 +38,6 @@ class Pose
 		cv::Mat dist_coef;
 		cv::Mat camera_T;
 		cv::Mat camera_T_34;
-		vector<cv::Point2f> optimizer;
-	public:
-		Pose();
-		~Pose(){};
-		void InitializeParam();
-		void GetRobotPoseInWorld(cv::Vec2f &direction_vec, cv::Point2f &pos, cv::Mat R_rw, cv::Mat t_rw, bool debug = true);
-		void GetBallPositionInWorld(vector<cv::Point2f> detect_result, cv::Point2f &ball_position, bool debut = true);
-		void TransformRobotToWorld(vector<Point2f> detect_result, cv::Mat &R_rw, cv::Mat &t_rw, bool debug = true);
-		double GetDistanceToMark();
-
-	public:
 		void Create3dPoints(vector<cv::Point3d> &pos_3d, double d);
 		void VectorConvert(vector<cv::Point2f> src, vector<cv::Point2d> &dst);
 		cv::Vec2f RotationMatrixToAngles(cv::Mat &R);

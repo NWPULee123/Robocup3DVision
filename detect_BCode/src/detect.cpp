@@ -6,6 +6,7 @@ using namespace cv;
 Detector::Detector(int width, int number, int paramter): 
 mark_width(width),mark_number(number),thres_paramter(paramter)
 {
+	this->USM_paramter = 3.0;
 	outer_result.resize(4);
 	inner_result.resize(4);
 }
@@ -126,10 +127,11 @@ void Detector::DetectCorners(cv::Mat image)
 	cv::imshow("ori_contours", ori_contours_image);
 	cv::waitKey(0);
 	this->result_image = image;
-
-	
 }
 
+
+
+//初步筛选边缘
 void Detector::GetIniContours(cv::Mat image, vector<vector<cv::Point>> &ori_contours, vector<vector<cv::Point>> &contours, vector<cv::Vec4i> &hierarchy)
 {
 	if(this->thres_paramter%2==0)
@@ -144,7 +146,7 @@ void Detector::GetIniContours(cv::Mat image, vector<vector<cv::Point>> &ori_cont
 
 	//边缘增强
 	cv::GaussianBlur(image, blur_image, cv::Size(0,0), 15);
-	cv::addWeighted(image, 4.5, blur_image, -3.5, 0, usm_image);
+	cv::addWeighted(image, this->USM_paramter, blur_image, -(this->USM_paramter-1), 0, usm_image);
 	// cv::imshow("sharp_image", usm_image);
 	cv::cvtColor(usm_image, image_threshold, CV_BGR2GRAY);
 	cv::adaptiveThreshold(image_threshold, image_threshold, 255,CV_ADAPTIVE_THRESH_MEAN_C,CV_THRESH_BINARY_INV, this->thres_paramter,7 );
@@ -155,33 +157,12 @@ void Detector::GetIniContours(cv::Mat image, vector<vector<cv::Point>> &ori_cont
 	contours.resize(ori_contours.size());
 
 	for(int i=0; i<ori_contours.size(); i++)
-		cv::approxPolyDP(ori_contours[i], contours[i], cv::arcLength(ori_contours[i],1) * 0.05, true);
+		cv::approxPolyDP(ori_contours[i], contours[i], cv::arcLength(ori_contours[i],1) * 0.1, true);
 }
 
 
-void Detector::ClockwiseSort(vector<Point2f> &src, vector<Point>contour)
-{
-	int sum_x=0,sum_y=0;
-	for(int i=0; i<4; i++)
-	{
-		sum_x += contour[i].x;
-		sum_y += contour[i].y;
-	}
-	float avg_x = sum_x/4;
-	float avg_y = sum_y/=4;
-	for(int i=0; i<4; i++)
-	{
-		if(contour[i].x<avg_x && contour[i].y<avg_y)
-			src[0] = contour[i];
-		else if(contour[i].x>avg_x && contour[i].y<avg_y)
-			src[1] = contour[i];
-		else if(contour[i].x<avg_x && contour[i].y>avg_y)
-			src[3] = contour[i];
-		else if(contour[i].x>avg_x && contour[i].y>avg_y)
-			src[2] = contour[i];
-	}
-}
 
+//检测内部结构
 bool Detector::TestImageCode(cv::Mat transform_image)
 {
 	cv::Mat image = transform_image.clone();
@@ -231,34 +212,25 @@ bool Detector::TestImageCode(cv::Mat transform_image)
 	else return false;
 }
 
-void Detector::SetThresParamter(int m)
+
+
+//求直线交点
+void Detector::GetCornors(cv::Mat Weights, vector<cv::Point2f> &caculated_cornors)
 {
-	this->thres_paramter = m;
+	for(int i=0; i<4; i++)
+	{
+		double k1 = Weights.at<float>(1,i);
+		double b1 = Weights.at<float>(0,i);
+		double k2 = Weights.at<float>(1,(i+1)%4);
+		double b2 = Weights.at<float>(0,(i+1)%4);
+		caculated_cornors[(i+1)%4].x = (b2-b1)/(k1-k2);
+		caculated_cornors[(i+1)%4].y = 0.5*(k1*caculated_cornors[(i+1)%4].x+b1+k2*caculated_cornors[(i+1)%4].x+b2);
+	}
 }
 
 
-void Detector::SetThresParamter(double distance)
-{
-	if(distance<0.3 || distance>100)
-		this->thres_paramter = 83;
-	else if(distance>=0.3 && distance <0.45)
-		this->thres_paramter = 63;
-	else if(distance>=0.45 && distance <1.3)
-		this->thres_paramter = 43;
-	else  this->thres_paramter = 23;
-}
 
-vector<cv::Point2f> Detector::GetDetectResult()
-{
-	return this->outer_result;
-}
-
-void Detector::ShowResultImage()
-{
-	cv::imshow("result", this->result_image);
-	cv::waitKey(0);
-}
-
+//线性回归
 void Detector::GetLinerRegressionWeights(vector<cv::Point> ori_contours, cv::Mat &Weights)
 {
 	vector<vector<double>> input_x(4);
@@ -273,8 +245,12 @@ void Detector::GetLinerRegressionWeights(vector<cv::Point> ori_contours, cv::Mat
 	}
 }
 
+
+
+//获取线性回归的输入数据
 void Detector::CreateFilterData(vector<cv::Point> ori_contours, vector<vector<double>> &input_x, vector<vector<double>> &input_y)
 {
+	int max_diff = 3;
 	vector<vector<cv::Point>> edges(4);
 	cv::Point top_left_cornor = this->outer_result[0];
 	cv::Point top_right_cornor = this->outer_result[1];
@@ -286,13 +262,13 @@ void Detector::CreateFilterData(vector<cv::Point> ori_contours, vector<vector<do
 	for(int i=0; i<ori_contours.size(); i++)
 	{
 		int x = ori_contours[i].x, y = ori_contours[i].y;
-		if(x>=top_left_cornor.x && x<=top_right_cornor.x && fabs(y-top_left_cornor.y)<10 && fabs(y-top_right_cornor.y)<10)
+		if(x>=top_left_cornor.x && x<=top_right_cornor.x && (fabs(y-top_left_cornor.y)<max_diff || fabs(y-top_right_cornor.y)<max_diff))
 			edges[0].push_back(ori_contours[i]);
-		else if(y>=top_right_cornor.y && y<=lower_right_cornor.y && fabs(x-top_right_cornor.x)<10 && fabs(x-lower_right_cornor.x)<10)
+		else if(y>=top_right_cornor.y && y<=lower_right_cornor.y && (fabs(x-top_right_cornor.x)<max_diff || fabs(x-lower_right_cornor.x)<max_diff))
 			edges[1].push_back(ori_contours[i]);
-		else if(x>=lower_left_cornor.x && x<=lower_right_cornor.x && fabs(y-lower_left_cornor.y)<10 && fabs(y-lower_right_cornor.y)<10)
+		else if(x>=lower_left_cornor.x && x<=lower_right_cornor.x && (fabs(y-lower_left_cornor.y)<max_diff || fabs(y-lower_right_cornor.y)<max_diff))
 			edges[2].push_back(ori_contours[i]);
-		else if(y>=top_left_cornor.y && y<=lower_left_cornor.y && fabs(x-top_left_cornor.x)<10 && fabs(x-lower_left_cornor.x)<10)
+		else if(y>=top_left_cornor.y && y<=lower_left_cornor.y && (fabs(x-top_left_cornor.x)<max_diff || fabs(x-lower_left_cornor.x)<max_diff))
 			edges[3].push_back(ori_contours[i]);
 	}
 	for(int i=0; i<4; i++)
@@ -307,18 +283,43 @@ void Detector::CreateFilterData(vector<cv::Point> ori_contours, vector<vector<do
 	}
 }
 
-void Detector::GetCornors(cv::Mat Weights, vector<cv::Point2f> &caculated_cornors)
+
+
+
+void Detector::SetThresParamter(int m)
 {
-	for(int i=0; i<4; i++)
+	this->thres_paramter = m;
+}
+
+
+
+
+void Detector::SetParamter(double distance)
+{
+	if(distance<0.3 || distance>100)
 	{
-		double k1 = Weights.at<float>(1,i);
-		double b1 = Weights.at<float>(0,i);
-		double k2 = Weights.at<float>(1,(i+1)%4);
-		double b2 = Weights.at<float>(0,(i+1)%4);
-		caculated_cornors[(i+1)%4].x = (b2-b1)/(k1-k2);
-		caculated_cornors[(i+1)%4].y = 0.5*(k1*caculated_cornors[(i+1)%4].x+b1+k2*caculated_cornors[(i+1)%4].x+b2);
+		this->thres_paramter = 83;
+		this->USM_paramter = 1.2;
+	}
+	else if(distance>=0.3 && distance <0.45)
+	{
+		this->thres_paramter = 63;
+		this->USM_paramter = 1.5;
+	}
+	else if(distance>=0.45 && distance <1.3)
+	{
+		this->thres_paramter = 43;
+		this->USM_paramter = 2.0;
+	}
+
+	else  
+	{
+		this->thres_paramter = 23;
+		this->USM_paramter = 3.0;
 	}
 }
+
+
 
 bool Detector::isWeightsValid(cv::Mat Weights)
 {
@@ -328,5 +329,47 @@ bool Detector::isWeightsValid(cv::Mat Weights)
 			return false;
 	}
 	return true;
+}
+
+
+
+vector<cv::Point2f> Detector::GetDetectResult()
+{
+	return this->outer_result;
+}
+
+
+
+
+void Detector::ShowResultImage()
+{
+	cv::imshow("result", this->result_image);
+	cv::waitKey(0);
+}
+
+
+
+
+void Detector::ClockwiseSort(vector<Point2f> &src, vector<Point>contour)
+{
+	int sum_x=0,sum_y=0;
+	for(int i=0; i<4; i++)
+	{
+		sum_x += contour[i].x;
+		sum_y += contour[i].y;
+	}
+	float avg_x = sum_x/4;
+	float avg_y = sum_y/=4;
+	for(int i=0; i<4; i++)
+	{
+		if(contour[i].x<avg_x && contour[i].y<avg_y)
+			src[0] = contour[i];
+		else if(contour[i].x>avg_x && contour[i].y<avg_y)
+			src[1] = contour[i];
+		else if(contour[i].x<avg_x && contour[i].y>avg_y)
+			src[3] = contour[i];
+		else if(contour[i].x>avg_x && contour[i].y>avg_y)
+			src[2] = contour[i];
+	}
 }
 

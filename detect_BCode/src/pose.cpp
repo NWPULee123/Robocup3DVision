@@ -21,7 +21,6 @@ Pose::Pose()
 	camera_t_vec = cv::Mat::zeros(3,1,CV_32F);
 	camera_T = cv::Mat::eye(3,3,CV_32F);
 	camera_T_34 = cv::Mat::eye(3,4,CV_32F);
-	optimizer.resize(4);
 }
 
 void Pose::InitializeParam()
@@ -46,6 +45,8 @@ void Pose::InitializeParam()
 	fs_external["matrix_T_w2c_34"] >> this->camera_T_34;
 }
 
+
+
 void Pose::GetRobotPoseInWorld(cv::Vec2f &direction_vec, cv::Point2f &pos, cv::Mat R_rw, cv::Mat t_rw, bool debug)
 {
 	//旋转矩阵 -> 比赛世界坐标系中mark与x轴夹角
@@ -60,6 +61,8 @@ void Pose::GetRobotPoseInWorld(cv::Vec2f &direction_vec, cv::Point2f &pos, cv::M
 		pos.y = 4.50 - pos.y;
 	}
 }
+
+
 
 void Pose::GetBallPositionInWorld(vector<Point2f> detect_result, cv::Point2f &ball_position, bool debug)
 {
@@ -86,6 +89,8 @@ void Pose::GetBallPositionInWorld(vector<Point2f> detect_result, cv::Point2f &ba
 		ball_position.y = 4.50 - ball_position.y;
 	}
 }
+
+
 
 void Pose::TransformRobotToWorld(vector<Point2f> detect_result, cv::Mat &R_rw, cv::Mat &t_rw, bool debug)
 {
@@ -127,6 +132,8 @@ void Pose::TransformRobotToWorld(vector<Point2f> detect_result, cv::Mat &R_rw, c
 		cout<<"distance : "<<distance<<endl;
 }
 
+
+
 //mark的三维坐标
 void Pose::Create3dPoints(vector<cv::Point3d> &pos_3d, double d)
 {
@@ -136,11 +143,14 @@ void Pose::Create3dPoints(vector<cv::Point3d> &pos_3d, double d)
 	pos_3d[3] = cv::Point3d(d/2.d, d/2.d, 0);
 }
 
+
+
 void Pose::VectorConvert(vector<cv::Point2f> src, vector<cv::Point2d> &dst)
 {
 	for(int i=0; i<src.size(); i++)
 		dst[i] = cv::Point2d(src[i]);
 }
+
 
 
 //每天一个生活小妙招
@@ -163,6 +173,8 @@ cv::Vec2f Pose::RotationMatrixToAngles(cv::Mat &R)
 	//double angles = -atan2(rotated_vec.at<float>(1), -rotated_vec.at<float>(0)) * 180.0f/3.141592653589793f;
     return direction_vector;
 }
+
+
 
 /**
  * 像素平面的点投影到世界坐标系，用于计算球的位置
@@ -201,6 +213,8 @@ void Pose::reprojection(cv::Mat camera_matrix, cv::Mat R_wc, cv::Mat t_wc, cv::P
 	p_3d.y = Y;
 	p_3d.z = z_3d;
 }
+
+
 
 double Pose::GetDistanceToMark()
 {
