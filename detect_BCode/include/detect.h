@@ -30,7 +30,7 @@ class Detector
 	public:
 		Detector(int width=4, int number=4, int paramter=23);
 		~Detector(){};
-		void GetIniContours(cv::Mat image, vector<vector<cv::Point>> &contours, vector<cv::Vec4i> &hierarchy);
+		void GetIniContours(cv::Mat image, vector<vector<cv::Point>> &ori_contours, vector<vector<cv::Point>> &contours, vector<cv::Vec4i> &hierarchy);
 		bool TestImageCode(cv::Mat transform_image);
 		void ClockwiseSort(vector<Point2f> &src, vector<Point> contour);	
 };

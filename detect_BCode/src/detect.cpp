@@ -22,12 +22,13 @@ mark_width(width),mark_number(number),thres_paramter(paramter)
 void Detector::DetectCorners(cv::Mat image)
 {
 	//step 1
-	vector<vector<cv::Point>> contours;
+	vector<vector<cv::Point>> ori_contours, contours;
 	vector<cv::Vec4i> hierarchy;
-	GetIniContours(image, contours, hierarchy);
+	GetIniContours(image, ori_contours, contours, hierarchy);
 
 	vector<vector<cv::Point>> candidates;
 	vector<vector<cv::Point>> candidates2;
+	vector<int> candidate_ids;
 	
 
 	for(int i=0; i<contours.size(); i++)
@@ -61,6 +62,7 @@ void Detector::DetectCorners(cv::Mat image)
 					//step 2.c
 					if((length[0]/length[2]<1.2&& length[0]/length[2]>0.8) && (length[1]/length[3]<1.2 && length[1]/length[3]>0.8) )
 					{
+						candidate_ids.push_back(i);
 						candidates.push_back(contours[i]);
 						candidates2.push_back(contours[child_contours]);
 					}
@@ -68,6 +70,8 @@ void Detector::DetectCorners(cv::Mat image)
 			}
 		}
 	}
+	int target_id = -1;
+	cv::Mat ori_contours_image = image.clone();
 	//step 3
 	for(int i=0; i<candidates.size(); i++)
 	{
@@ -86,6 +90,8 @@ void Detector::DetectCorners(cv::Mat image)
 		cv::Mat matrix = cv::getPerspectiveTransform(src,dst);
 		cv::warpPerspective(image,transform_image,matrix,transform_image.size());	
 		if(TestImageCode(transform_image)){
+			target_id = i;
+			cv::drawContours(ori_contours_image, ori_contours, target_id, cv::Scalar(255,0,0), 1.5);
 			ClockwiseSort(this->outer_result, candidates[i]);
 			ClockwiseSort(this->inner_result, candidates2[i]);
 			cv::drawContours(image, candidates, i,cv::Scalar(255,0,0),1.5);
@@ -93,10 +99,14 @@ void Detector::DetectCorners(cv::Mat image)
 			break;
 		}
 	}
+	cv::imshow("ori_contours", ori_contours_image);
+	cv::waitKey(0);
 	this->result_image = image;
+
+	
 }
 
-void Detector::GetIniContours(cv::Mat image, vector<vector<cv::Point>> &contours, vector<cv::Vec4i> &hierarchy)
+void Detector::GetIniContours(cv::Mat image, vector<vector<cv::Point>> &ori_contours, vector<vector<cv::Point>> &contours, vector<cv::Vec4i> &hierarchy)
 {
 	if(this->thres_paramter%2==0)
 		this->thres_paramter++;
@@ -117,7 +127,6 @@ void Detector::GetIniContours(cv::Mat image, vector<vector<cv::Point>> &contours
 	cv::imshow("sharp_threshold", image_threshold);
 	
 	// cv::waitKey(0);
-	vector<vector<cv::Point>> ori_contours; 
 	cv::findContours(image_threshold, ori_contours, hierarchy, CV_RETR_TREE,CV_CHAIN_APPROX_NONE);
 	contours.resize(ori_contours.size());
 
