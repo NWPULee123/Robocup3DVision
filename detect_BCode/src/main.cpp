@@ -1,9 +1,12 @@
 #include "detect.h"
 #include "pose.h"
+#include "find_ball.h"
 
 
 using namespace cv;
 using namespace std;
+using RedContritio::BallFinder;
+using RedContritio::BallInfo;
 
 void ContinueslyTest(cv::Mat frame , ofstream &fout, double &distance, int &count, cv::Point2f &avg_pos)
 {
@@ -61,7 +64,12 @@ int main(int argc, char *argv[])
 			char s = cv::waitKey(1);
 			if(s == 'c')
 			{
+				BallFinder *ball_detector = new BallFinder();
 				Detector *mark_detector = new Detector();
+				ball_detector->LoadParameter();
+				BallInfo ballInfo;
+				ball_detector->imageProcess(frame, &ballInfo);
+				cout<<ballInfo.center<<endl;
 				mark_detector->SetThresParamter(adaptiveThreshWinSizeMax);
 				mark_detector->DetectCorners(frame);
 				mark_detector->ShowResultImage();
@@ -69,6 +77,9 @@ int main(int argc, char *argv[])
 
 				Pose *pose_estimate = new Pose();
 				pose_estimate->InitializeParam();
+				cv::Point2f pos_ball;
+				pose_estimate->GetBallPositionInWorld(ballInfo.center,pos_ball);
+				cout<<"pos_ball: "<<pos_ball<<endl;
 				cv::Vec2f direction_vec;
 				cv::Point2f pos;
 				cv::Mat R_rw, t_rw;

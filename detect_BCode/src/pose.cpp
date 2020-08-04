@@ -11,7 +11,7 @@ using namespace cv;
 Pose::Pose()
 {
 	mark_length = 0.0865; //meter
-	ball_diameter = 0;
+	ball_diameter = 0.06;
 	distance_to_mark = 2.0;
 	camera_param = "../bin/camera_param.yaml";
 	external_param = "../bin/ex_param.yaml";
@@ -64,25 +64,16 @@ void Pose::GetRobotPoseInWorld(cv::Vec2f &direction_vec, cv::Point2f &pos, cv::M
 
 
 
-void Pose::GetBallPositionInWorld(vector<Point2f> detect_result, cv::Point2f &ball_position, bool debug)
+void Pose::GetBallPositionInWorld(Point2f detect_result, cv::Point2f &ball_position, bool debug)
 {
 	cv::Mat R_vec_wc = this->camera_R_vec.clone(), t_wc = this->camera_t_vec.clone(), R_wc;
 	cv::Rodrigues(R_vec_wc, R_wc);
 	R_wc.convertTo(R_wc, CV_32F);
 	t_wc.convertTo(t_wc, CV_32F);
-	for(int i=0; i<detect_result.size(); i++)
-	{
-		cv::Point2f p_2d = detect_result[i];
-		cv::Point3f p_3d;
-		if(i < 2)
-			reprojection(camera_matrix, R_wc, t_wc, p_2d, this->ball_diameter, p_3d);
-		else
-			reprojection(camera_matrix, R_wc, t_wc, p_2d, 0, p_3d);
-		ball_position.x += p_3d.x;
-		ball_position.y += p_3d.y;
-	}
-	ball_position.x /= 4;
-	ball_position.y /= 4;
+	cv::Point3f p_3d;
+	reprojection(camera_matrix, R_wc, t_wc, detect_result, this->ball_diameter/2, p_3d);
+	ball_position.x = p_3d.x;
+	ball_position.y = p_3d.y;
 	if(!debug)
 	{
 		ball_position.x = -ball_position.x;
@@ -187,6 +178,9 @@ cv::Vec2f Pose::RotationMatrixToAngles(cv::Mat &R)
 
 void Pose::reprojection(cv::Mat camera_matrix, cv::Mat R_wc, cv::Mat t_wc, cv::Point2f p_2d, double z_3d, cv::Point3f & p_3d)
 {
+	camera_matrix.convertTo(camera_matrix,CV_32F);
+	R_wc.convertTo(R_wc,CV_32F);
+	t_wc.convertTo(t_wc,CV_32F);
 	cv::Mat K_inv;
 	cv::invert(camera_matrix,K_inv);
 	cv::Mat a(3,1,CV_32F);
@@ -208,10 +202,22 @@ void Pose::reprojection(cv::Mat camera_matrix, cv::Mat R_wc, cv::Mat t_wc, cv::P
 	d.copyTo(B.rowRange(0,3).col(0));
 	cv::Mat x(3,1,CV_32F, CV_SVD);
 	cv::solve(A,B,x);
+	cout<<"x"<<endl<<x<<endl;
 	float X=x.at<float>(0),Y=x.at<float>(1),z=x.at<float>(2);
 	p_3d.x = X;
 	p_3d.y = Y;
 	p_3d.z = z_3d;
+
+	cv::Mat u_v(3,1,CV_32F);
+	cv::Mat p_3d_mat(3,1,CV_32F);
+	p_3d_mat.at<float>(0) = p_3d.x;
+	p_3d_mat.at<float>(1) = p_3d.y;
+	p_3d_mat.at<float>(2) = p_3d.z;
+	p_3d_mat.convertTo(p_3d_mat,CV_32F);
+	u_v = camera_matrix*(R_wc*p_3d_mat + t_wc);
+	u_v /= z;
+	u_v.convertTo(u_v,CV_32F);
+	cout<<"reprojection : "<<endl<<u_v<<endl;
 }
 
 
