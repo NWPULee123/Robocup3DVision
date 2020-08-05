@@ -12,7 +12,7 @@ namespace RedContritio
 
 struct BallInfo
 {
-    cv::Point2d center;
+    cv::Point2f center;
     double radius;
 };
 

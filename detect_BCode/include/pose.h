@@ -21,7 +21,7 @@ class Pose
 	public:
 		void InitializeParam();
 		void GetRobotPoseInWorld(cv::Vec2f &direction_vec, cv::Point2f &pos, cv::Mat R_rw, cv::Mat t_rw, bool debug = true);
-		void GetBallPositionInWorld(vector<cv::Point2f> detect_result, cv::Point2f &ball_position, bool debut = true);
+		void GetBallPositionInWorld(cv::Point2f detect_result, cv::Point2f &ball_position, bool debut = true);
 		void TransformRobotToWorld(vector<Point2f> detect_result, cv::Mat &R_rw, cv::Mat &t_rw, bool debug = true);
 		double GetDistanceToMark();
 
