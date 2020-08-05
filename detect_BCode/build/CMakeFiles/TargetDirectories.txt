@@ -1,3 +1,0 @@
-/home/lcl/Robocup3DVision/detect_BCode/build/CMakeFiles/rebuild_cache.dir
-/home/lcl/Robocup3DVision/detect_BCode/build/CMakeFiles/demo.dir
-/home/lcl/Robocup3DVision/detect_BCode/build/CMakeFiles/edit_cache.dir
