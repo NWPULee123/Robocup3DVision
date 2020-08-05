@@ -1,5 +1,5 @@
 .vscode/
 myProgram
 **/build/
-**/**/myProgram
-**/**/demo
+**/myProgram
+**/demo
