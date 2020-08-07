@@ -7,6 +7,7 @@ using namespace cv;
 using namespace std;
 using RedContritio::BallFinder;
 using RedContritio::BallInfo;
+using RectDetect::Detector;
 
 void ContinueslyTest(cv::Mat frame , ofstream &fout, double &distance, int &count, cv::Point2f &avg_pos)
 {

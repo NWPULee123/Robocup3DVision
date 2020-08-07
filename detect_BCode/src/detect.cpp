@@ -3,6 +3,19 @@
 using namespace std;
 using namespace cv;
 
+namespace RectDetect
+{
+
+bool compareX(cv::Point a, cv::Point b)
+{
+	return a.x < b.x;
+}
+
+bool compareY(cv::Point a, cv::Point b)
+{
+	return a.y < b.y;
+}
+
 Detector::Detector(int width, int number, int paramter): 
 mark_width(width),mark_number(number),thres_paramter(paramter)
 {
@@ -102,29 +115,34 @@ void Detector::DetectCorners(cv::Mat image)
 			break;
 		}
 	}
-	cv::Mat Weights(2,4,CV_32F);
+	cv::Mat Weights(2,4,CV_64F);
 	GetLinerRegressionWeights(ori_contours[target_id], Weights);
-	vector<cv::Point2f> caculated_cornors(4);
-	GetCornors(Weights, caculated_cornors);
+	vector<cv::Point2d> caculated_corners(4);
+	Getcorners(Weights, caculated_corners);
+	cout<<"ori_corners :"<<endl<<this->outer_result<<endl;
+	cout<<"caculated_corners : "<<endl<<caculated_corners<<endl;
+
 	if(isWeightsValid(Weights))
 	{
 		for(int i=0; i<4; i++)
-			this->outer_result[i] = 0.5*(this->outer_result[i] + caculated_cornors[i]);
+		{
+			this->outer_result[i] = 0.5*(this->outer_result[i] + cv::Point2f(caculated_corners[i]));
+		}
 	}
-	vector<vector<cv::Point>> cal_cornors(1);
-	cal_cornors[0].resize(4);
+	cout<<"final_corners :"<<endl<<this->outer_result<<endl;
+	vector<vector<cv::Point>> cal_corners(1);
+	cal_corners[0].resize(4);
 	for(int i=0; i<4; i++)
-		cal_cornors[0][i] = caculated_cornors[i];
-	vector<vector<cv::Point>> result_cornors(1);
-	result_cornors[0].resize(4);
+		cal_corners[0][i] = caculated_corners[i];
+	vector<vector<cv::Point>> result_corners(1);
+	result_corners[0].resize(4);
 	for(int i=0; i<4; i++)
-		result_cornors[0][i] = this->outer_result[i];
-	cv::drawContours(caculated_image, cal_cornors, 0, cv::Scalar(255,0,0),1.5);
-	cv::drawContours(final_image, result_cornors, 0, cv::Scalar(255,0,0),1.5);
+		result_corners[0][i] = this->outer_result[i];
+	cv::drawContours(caculated_image, cal_corners, 0, cv::Scalar(255,0,0),1.5);
+	cv::drawContours(final_image, result_corners, 0, cv::Scalar(255,0,0),1.5);
 
 	cv::imshow("caculated_contours", caculated_image);
 	cv::imshow("final_contours", final_image);
-	cv::imshow("ori_contours", ori_contours_image);
 	cv::waitKey(0);
 	this->result_image = image;
 }
@@ -215,16 +233,16 @@ bool Detector::TestImageCode(cv::Mat transform_image)
 
 
 //求直线交点
-void Detector::GetCornors(cv::Mat Weights, vector<cv::Point2f> &caculated_cornors)
+void Detector::Getcorners(cv::Mat Weights, vector<cv::Point2d> &caculated_corners)
 {
 	for(int i=0; i<4; i++)
 	{
-		double k1 = Weights.at<float>(1,i);
-		double b1 = Weights.at<float>(0,i);
-		double k2 = Weights.at<float>(1,(i+1)%4);
-		double b2 = Weights.at<float>(0,(i+1)%4);
-		caculated_cornors[(i+1)%4].x = (b2-b1)/(k1-k2);
-		caculated_cornors[(i+1)%4].y = 0.5*(k1*caculated_cornors[(i+1)%4].x+b1+k2*caculated_cornors[(i+1)%4].x+b2);
+		double k1 = Weights.at<double>(1,i);
+		double b1 = Weights.at<double>(0,i);
+		double k2 = Weights.at<double>(1,(i+1)%4);
+		double b2 = Weights.at<double>(0,(i+1)%4);
+		caculated_corners[(i+1)%4].x = (b2-b1)/(k1-k2);
+		caculated_corners[(i+1)%4].y = 0.5*(k1*caculated_corners[(i+1)%4].x+b1+k2*caculated_corners[(i+1)%4].x+b2);
 	}
 }
 
@@ -239,9 +257,16 @@ void Detector::GetLinerRegressionWeights(vector<cv::Point> ori_contours, cv::Mat
 	UpperclassFilter *filter = new UpperclassFilter();
 	for(int i=0; i<4; i++)
 	{
-		cv::Mat W(2,1,CV_32F);
+		cv::Mat W(2,1,CV_64FC1);
 		W = filter->LinerRegression(input_x[i], input_y[i]);
 		W.copyTo(Weights.rowRange(0,2).col(i));
+		cout<<"Edge "<<i<<" :"<<endl;
+		cout<<"caculated W : "<<W<<endl;
+		for(int j=0; j<input_x[i].size(); j++)
+		{
+			double predict_y = W.at<double>(0) + W.at<double>(1)*input_x[i][j];
+			// cout<<"x : "<<input_x[i][j]<<"\t predict_y : "<<predict_y<<"\t y :"<<input_y[i][j]<<endl;
+		}
 	}
 }
 
@@ -250,35 +275,39 @@ void Detector::GetLinerRegressionWeights(vector<cv::Point> ori_contours, cv::Mat
 //获取线性回归的输入数据
 void Detector::CreateFilterData(vector<cv::Point> ori_contours, vector<vector<double>> &input_x, vector<vector<double>> &input_y)
 {
-	int max_diff = 3;
+	int max_diff = 5;
 	vector<vector<cv::Point>> edges(4);
-	cv::Point top_left_cornor = this->outer_result[0];
-	cv::Point top_right_cornor = this->outer_result[1];
-	cv::Point lower_right_cornor = this->outer_result[2];
-	cv::Point lower_left_cornor = this->outer_result[3];
+	cv::Point top_left_corner = this->outer_result[0];
+	cv::Point top_right_corner = this->outer_result[1];
+	cv::Point lower_right_corner = this->outer_result[2];
+	cv::Point lower_left_corner = this->outer_result[3];
 	cv::Point center;
-	center.x = (top_left_cornor.x + top_right_cornor.x + lower_right_cornor.x + lower_left_cornor.x)/4;
-	center.y = (top_left_cornor.y + top_right_cornor.y + lower_right_cornor.y + lower_left_cornor.y)/4;
+	center.x = (top_left_corner.x + top_right_corner.x + lower_right_corner.x + lower_left_corner.x)/4;
+	center.y = (top_left_corner.y + top_right_corner.y + lower_right_corner.y + lower_left_corner.y)/4;
 	for(int i=0; i<ori_contours.size(); i++)
 	{
 		int x = ori_contours[i].x, y = ori_contours[i].y;
-		if(x>=top_left_cornor.x && x<=top_right_cornor.x && (fabs(y-top_left_cornor.y)<max_diff || fabs(y-top_right_cornor.y)<max_diff))
+		if(x>=top_left_corner.x && x<=top_right_corner.x && (fabs(y-top_left_corner.y)<max_diff || fabs(y-top_right_corner.y)<max_diff))
 			edges[0].push_back(ori_contours[i]);
-		else if(y>=top_right_cornor.y && y<=lower_right_cornor.y && (fabs(x-top_right_cornor.x)<max_diff || fabs(x-lower_right_cornor.x)<max_diff))
+		else if(y>=top_right_corner.y && y<=lower_right_corner.y && (fabs(x-top_right_corner.x)<max_diff || fabs(x-lower_right_corner.x)<max_diff))
 			edges[1].push_back(ori_contours[i]);
-		else if(x>=lower_left_cornor.x && x<=lower_right_cornor.x && (fabs(y-lower_left_cornor.y)<max_diff || fabs(y-lower_right_cornor.y)<max_diff))
+		else if(x>=lower_left_corner.x && x<=lower_right_corner.x && (fabs(y-lower_left_corner.y)<max_diff || fabs(y-lower_right_corner.y)<max_diff))
 			edges[2].push_back(ori_contours[i]);
-		else if(y>=top_left_cornor.y && y<=lower_left_cornor.y && (fabs(x-top_left_cornor.x)<max_diff || fabs(x-lower_left_cornor.x)<max_diff))
+		else if(y>=top_left_corner.y && y<=lower_left_corner.y && (fabs(x-top_left_corner.x)<max_diff || fabs(x-lower_left_corner.x)<max_diff))
 			edges[3].push_back(ori_contours[i]);
 	}
 	for(int i=0; i<4; i++)
 	{
-		input_x[i].resize(edges[i].size());
-		input_y[i].resize(edges[i].size());
-		for(int j=0; j<edges[i].size(); j++)
+		if(i%2 == 0)
+			sort(edges[i].begin(), edges[i].end(), compareX);
+		else sort(edges[i].begin(), edges[i].end(), compareY);
+		int deprecated_num = edges[i].size()/5;
+		// cout<<"num: "<<deprecated_num<<endl;
+		for(int j=deprecated_num; j<edges[i].size()-deprecated_num; j++)
 		{
-			input_x[i][j] = edges[i][j].x;
-			input_y[i][j] = edges[i][j].y;
+			input_x[i].push_back(edges[i][j].x);
+			input_y[i].push_back(edges[i][j].y);
+			// cout<<edges[i][j]<<endl;
 		}
 	}
 }
@@ -373,3 +402,4 @@ void Detector::ClockwiseSort(vector<Point2f> &src, vector<Point>contour)
 	}
 }
 
+}
