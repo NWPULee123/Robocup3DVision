@@ -3,19 +3,29 @@ project(calibration)
 
 find_package(OpenCV REQUIRED)
 
+aux_source_directory (src0 SRC_LIST0)
 aux_source_directory (src1 SRC_LIST1)
 aux_source_directory (src2 SRC_LIST2)
 aux_source_directory (src3 SRC_LIST3)
+
+add_executable(capture_images
+	${SRC_LIST0}
+)
+
+target_link_libraries(capture_images
+	${OpenCV_LIBS}
+)
 
 add_executable(create_board
 	${SRC_LIST1}
 )
 
-add_executable(calibration
-	${SRC_LIST2}
-)
 target_link_libraries(create_board
 	${OpenCV_LIBS}
+)
+
+add_executable(calibration
+	${SRC_LIST2}
 )
 
 target_link_libraries(calibration

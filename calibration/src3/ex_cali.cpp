@@ -10,11 +10,11 @@
 using namespace std;
 using namespace cv;
 
-int  X_direction = 8;
-int  Y_direction = 6;
-int aruco_board_type =  9;
-double square_length = 0.031;
-double mark_length = 0.024;
+int  X_direction = 7;
+int  Y_direction = 5;
+int aruco_board_type =  1;
+double square_length = 0.0365;
+double mark_length = 0.0279;
 string camera_params_file = "../bin/camera_param.yaml";
 string detector_params_file = "../bin/detector_params.yml";
 string output_file = "./ex_param.yaml";
@@ -25,7 +25,7 @@ bool readCameraParams(cv::Mat &camera_matrix, cv::Mat &dist_coef)
 	cv::FileStorage fs(camera_params_file, FileStorage::READ);
 	if(!fs.isOpened())
 	{
-		cout<<"Failed to load file";
+		cout<<"Failed to load camera_params file";
 		return false;
 	}
 	fs["camera_matrix"] >>camera_matrix;
@@ -38,7 +38,7 @@ bool readCameraParams(cv::Mat &camera_matrix, cv::Mat &dist_coef)
     cv::FileStorage fs(detector_params_file, FileStorage::READ);
     if(!fs.isOpened())
 	{
-		cout<<"Failed to open file"<<endl;
+		cout<<"Failed to load detector_params file."<<endl;
 		return ;
 	}
     fs["adaptiveThreshWinSizeMin"] >> params->adaptiveThreshWinSizeMin;
@@ -78,43 +78,46 @@ void saveCameraParams(cv::Mat R_vector, cv::Mat t, cv::Mat T, cv::Mat T34)
 	fs << "matrix_T_w2c_34" << T34;
 }
 
-void detectConors(cv::Mat frame, int dictionary_id,  vector<vector<cv::Point2f>> &conors, vector<int> &ids, cv::Mat &conor_pos, cv::Mat &ids_pos)
+void detectcorners(cv::Mat frame, int dictionary_id,  vector<vector<cv::Point2f>> &corners, vector<int> &ids, cv::Mat &corner_pos, cv::Mat &ids_pos)
 {
 	cv::Ptr<cv::aruco::Dictionary>  dict = cv::aruco::getPredefinedDictionary(dictionary_id);
 	cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();;
 	readDetectorParameters(parameters);
-	cv::aruco::detectMarkers(frame, dict, conors, ids, parameters);
+	cv::aruco::detectMarkers(frame, dict, corners, ids, parameters);
 	Ptr<aruco::CharucoBoard> board = aruco::CharucoBoard::create(X_direction, Y_direction, (float)square_length,
                                                             (float)mark_length, dict);
-	cv::aruco::interpolateCornersCharuco(conors, ids, frame, board, conor_pos, ids_pos);
+	cv::aruco::interpolateCornersCharuco(corners, ids, frame, board, corner_pos, ids_pos);
 }
 
-void getCorrespondingPoints(cv::Mat conor_pos, cv::Mat ids_pos, vector<cv::Point2f> &pos_2d,  vector<cv::Point3f> &pos_3d)
+void getCorrespondingPoints(cv::Mat corner_pos, cv::Mat ids_pos, vector<cv::Point2f> &pos_2d,  vector<cv::Point3f> &pos_3d)
 {
-	for(int i=0; i<conor_pos.rows; i++)
+	for(int i=0; i<corner_pos.rows; i++)
 	{
-		cv::Point2f point2d = cv::Point2f(conor_pos.at<float>(i,0), conor_pos.at<float>(i,1));
+		cv::Point2f point2d = cv::Point2f(corner_pos.at<float>(i,0), corner_pos.at<float>(i,1));
 		int row = ids_pos.at<int>(i)/(X_direction-1);
 		int col = ids_pos.at<int>(i)%(X_direction-1);
-		cv::Point3f point3d = cv::Point3f(square_length*col, 0, square_length*row+0.042 );
+		cv::Point3f point3d = cv::Point3f(square_length*col, 0, square_length*row+0.0765 );
 		//cv::Point3f point3d = cv::Point3f(1*col, 1*row, 0);
 		pos_2d.push_back(point2d);
 		pos_3d.push_back(point3d);
 	}
 }
 
-void testCorrespondingPoints(cv::Mat conor_pos, cv::Mat ids_pos, vector<cv::Point2f> &pos_2d)
+void testCorrespondingPoints(cv::Mat corner_pos, cv::Mat ids_pos, vector<cv::Point2f> &pos_2d)
 {
 	pos_2d.clear();
-	for(int i=0; i<conor_pos.rows; i++)
+	for(int i=0; i<corner_pos.rows; i++)
 	{
-		cv::Point2f point2d = cv::Point2f(conor_pos.at<float>(i,0), conor_pos.at<float>(i,1));
+		cv::Point2f point2d = cv::Point2f(corner_pos.at<float>(i,0), corner_pos.at<float>(i,1));
 		pos_2d.push_back(point2d);
 	}
 }
 
 void reprojection(cv::Mat camera_matrix, cv::Mat R_wc, cv::Mat t_wc, cv::Point2f p_2d, double z_3d, cv::Point3f & p_3d)
 {
+	R_wc.convertTo(R_wc, CV_32F);
+	t_wc.convertTo(t_wc, CV_32F);
+	cout<<t_wc<<endl;
 	cv::Mat K_inv;
 	cv::invert(camera_matrix,K_inv);
 	cv::Mat a(3,1,CV_32F);
@@ -149,36 +152,40 @@ int main(int argc, char *argv[])
 	cv::Mat dist_coef;
 	string filename = "../bin/camera_param.yaml";
 	readCameraParams(camera_matrix, dist_coef);
-	cv::VideoCapture capture(2);
-	capture.set(CV_CAP_PROP_FRAME_HEIGHT, 720);
-	capture.set(CV_CAP_PROP_FRAME_WIDTH, 1280);
 	cv::Mat frame;
-	vector<vector<cv::Point2f>> conors;
+	vector<vector<cv::Point2f>> corners;
 	vector<int> ids;
 	cv::Mat ids_pos;
-	cv::Mat conor_pos;
+	cv::Mat corner_pos;
 	vector<cv::Point2f> pos_2d;
 	vector<cv::Point3f> pos_3d;
 	cv::Mat R_wc_vec,t_wc,R_wc;
 	cv::Mat T_wc(4,4,CV_32F);
 	cv::Mat T_wc_34(3,4,CV_32F);
-	while(capture.grab())
-	{
-		capture.retrieve(frame);
-		cv::imshow("frame",frame);
-		char s = cv::waitKey(1);
-		if(s=='c')
+
+	string s1 = "/home/lcl/Robocup3DVision/calibration/src0/cap_image/";
+	string s2 = ".jpg";
+    for(int i=1; i<=5; i++)
+    {
+		char s[2];
+        sprintf(s, "%d", i);
+        string path = s1 + s + s2;
+        frame = cv::imread(path, 1);
+		cv::imshow("image", frame);
+		char key = cv::waitKey(10000);
+		if(key=='c')
 		{
 			cv::Mat imageCopy = frame;
-			detectConors(frame, aruco_board_type, conors, ids, conor_pos, ids_pos);
-			cv::aruco::drawDetectedCornersCharuco(imageCopy, conor_pos, ids_pos);
+			detectcorners(frame, aruco_board_type, corners, ids, corner_pos, ids_pos);
+			cv::aruco::drawDetectedCornersCharuco(imageCopy, corner_pos, ids_pos);
 			if(ids_pos.total()<4)
 			{
-				cout<<"Too less conors found, please try again"<<endl;
+				cout<<"Too less corners found, please try again"<<endl;
 			}
 			else
 			{
-				getCorrespondingPoints(conor_pos, ids_pos, pos_2d, pos_3d);
+				cout<<"Corners found"<<endl;
+				getCorrespondingPoints(corner_pos, ids_pos, pos_2d, pos_3d);
 				cv::solvePnP(pos_3d, pos_2d, camera_matrix, dist_coef, R_wc_vec, t_wc);
 
 
@@ -187,13 +194,13 @@ int main(int argc, char *argv[])
 
 				R_wc_vec.convertTo(R_wc_vec, CV_32F);
 				t_wc.convertTo(t_wc, CV_32F);
-				cout<<t_wc<<endl;
+				// cout<<t_wc<<endl;
 				cv::Mat t_wc_moved = t_wc.clone();
-				t_wc_moved.convertTo(t_wc_moved, CV_32F);
 				t_wc_moved.at<float>(0) = 0;
 				//t_wc_moved.at<float>(1) = 0;
 				t_wc_moved.at<float>(2) = 0;
-				cv::aruco::drawAxis(imageCopy, camera_matrix, dist_coef, R_wc_vec, t_wc_moved, 1.0);
+				t_wc_moved.convertTo(t_wc_moved, CV_32F);
+				// cout<<t_wc_moved<<endl;
 				cv::imshow("axis", imageCopy);
 				cv::waitKey(0);	
 				cv::Rodrigues(R_wc_vec, R_wc);
@@ -228,13 +235,12 @@ int main(int argc, char *argv[])
 
 				for(int j=0; j<3; j++)
 				{
-					int i=j*2;
+					int i=j*3;
 					cv::Mat P(4,1,CV_32F);
 					P.at<float>(0) = pos_3d[i].x;
 					P.at<float>(1) = pos_3d[i].y;
 					P.at<float>(2) = pos_3d[i].z;
 					P.at<float>(3) = 1;
-					cout<<P<<endl;
 					cv::Mat  Pc(3,1,CV_32F) ;
 					cv::Mat  Pu(3,1,CV_32F);					// cout<<"pw_moved "<<i<<" : "<<pw_moved<<endl;
 					camera_matrix.convertTo(camera_matrix,CV_32F);
@@ -247,18 +253,19 @@ int main(int argc, char *argv[])
 					cout<<endl;
 					cv::Point3f pw;
 					cv::Point3f pw_moved;
-					reprojection(camera_matrix, R_wc, t_wc, pos_2d[i], 0, pw);
-					reprojection(camera_matrix, R_wc, t_wc_moved, pos_2d[i], 0, pw_moved);
+					reprojection(camera_matrix, R_wc, t_wc, pos_2d[i], pos_3d[i].z, pw);
+					reprojection(camera_matrix, R_wc, t_wc_moved, pos_2d[i],pos_3d[i].z, pw_moved);
 					cout<<"pw "<<i<<" : "<<pw<<endl;
 					cout<<"pw_moved "<<i<<" : "<<pw_moved<<endl;
 					cout<<"Pw "<<i<<" : "<<pos_3d[i]<<endl;
 				}
 				char save = cin.get();
 				if(save == 's')
-					saveCameraParams(R_wc_vec , t_wc_moved, T_wc_moved, T_wc_moved_34); 
+					// saveCameraParams(R_wc_vec , t_wc_moved, T_wc_moved, T_wc_moved_34); 
+					saveCameraParams(R_wc_vec , t_wc, T_wc, T_wc_34); 
 			}
 		}
-		else if(s == 'q')
+		else if(key == 'q')
 			break;
 	}
 

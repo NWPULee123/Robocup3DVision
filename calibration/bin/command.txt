@@ -1,0 +1,6 @@
+./create_board -d=9 -h=6 --ml=85 --si=true --sl=110 -w=8 board.png
+./calibration -a=1 -d=9 -h=6 -w=8 --ml=0.024 --sl=0.031 --dp=detector_params.yml --ci=2 camera_param.txt
+
+
+./create_board -d=1 -h=5 --ml=100 --si=true --sl=130 -w=7 board.png
+./calibration -a=1 -d=1 -h=5 -w=7 --ml=0.0279 --sl=0.0365 --dp=detector_params.yml --ci=0 camera_param.txt

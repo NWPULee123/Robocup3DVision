@@ -196,11 +196,6 @@ int main(int argc, char *argv[]) {
         parser.printErrors();
         return 0;
     }
-
-    VideoCapture inputVideo(camId);
-    inputVideo.set(CV_CAP_PROP_FRAME_HEIGHT, 720);
-	inputVideo.set(CV_CAP_PROP_FRAME_WIDTH, 1280);
-    int waitTime=10;
     // if(!video.empty()) {
     //     inputVideo.open(video);
     //     waitTime = 0;
@@ -223,11 +218,16 @@ int main(int argc, char *argv[]) {
     vector< Mat > allImgs;
     Size imgSize;
 
-    while(inputVideo.grab()) {
-        Mat image, imageCopy;
-        inputVideo.retrieve(image);
-
-        vector< int > ids;
+	string s1 = "/home/lcl/Robocup3DVision/calibration/src0/cap_image/";
+	string s2 = ".jpg";
+    for(int i=1; i<=5; i++)
+    {
+        cv::Mat image, imageCopy;
+        char s[2];
+        sprintf(s, "%d", i);
+        string path = s1 + s + s2;
+        image = cv::imread(path, 1);
+       vector< int > ids;
         vector< vector< Point2f > > corners, rejected;
 
         // detect markers
@@ -244,7 +244,6 @@ int main(int argc, char *argv[]) {
 
         // draw results
         image.copyTo(imageCopy);
-        cout<<"xx   "<<imageCopy.size<<endl;
         if(ids.size() > 0) aruco::drawDetectedMarkers(imageCopy, corners);
 
         if(currentCharucoCorners.total() > 0)
@@ -254,10 +253,11 @@ int main(int argc, char *argv[]) {
                 Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 0), 2);
 
         imshow("out", imageCopy);
-        char key = (char)waitKey(waitTime);
+        char key = cv::waitKey(10000);
         if(key == 27) break;
         if(key == 'c' && ids.size() > 0) {
-            cout << "Frame captured" << endl;
+            
+            cout << "Frame captured with "<<ids.size()<<" found" << endl;
             allCorners.push_back(corners);
             allIds.push_back(ids);
             allImgs.push_back(image);

@@ -28,7 +28,8 @@ cv::Vec<cv::Range, 3> BallFinder::hsv_thre({
 
 BallFinder::BallFinder(void)
 {
-
+    std::vector<int> a;
+    
 }
 
 void BallFinder::imageProcess(cv::Mat image, BallInfo *pResult)
