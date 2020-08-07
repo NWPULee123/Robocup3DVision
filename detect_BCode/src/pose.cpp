@@ -145,7 +145,7 @@ void Pose::VectorConvert(vector<cv::Point2f> src, vector<cv::Point2d> &dst)
 
 
 //每天一个生活小妙招
-cv::Vec2f Pose::RotationMatrixToAngles(cv::Mat &R)
+cv::Vec2f Pose::RotationMatrixToAngles(cv::Mat R)
 {
 	cv::Mat rotated_vec(3,1,CV_32F);
 	cv::Mat unit_vec (3,1,CV_32F);
@@ -153,6 +153,7 @@ cv::Vec2f Pose::RotationMatrixToAngles(cv::Mat &R)
 	unit_vec.at<float>(1) = 0;
 	unit_vec.at<float>(2) = 0;
 	rotated_vec = R*unit_vec;
+	cout<<rotated_vec<<endl;
 
 	cv::Vec2f direction_vector;
 	direction_vector[0] = rotated_vec.at<float>(1);

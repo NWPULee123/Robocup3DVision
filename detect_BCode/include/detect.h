@@ -11,6 +11,8 @@
 using namespace std;
 using namespace cv;
 
+namespace RectDetect
+{
 class Detector
 {
 	public:
@@ -41,8 +43,10 @@ class Detector
 		//for liner regression
 		void GetLinerRegressionWeights(vector<Point> ori_contours, cv::Mat &Weights);
 		void CreateFilterData(vector<cv::Point> ori_contours, vector<vector<double>> &input_x, vector<vector<double>> &input_y);
-		void GetCornors(cv::Mat Weights, vector<cv::Point2f> &caculated_cornors);
+		void Getcorners(cv::Mat Weights, vector<cv::Point2d> &caculated_corners);
 		bool isWeightsValid(cv::Mat Weights);
 };
+
+}
 
 #endif
